@@ -1,19 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase, ensureAnonSession } from '../lib/supabase';
-import { CHANNEL_PREFIX, LOCATION_EVENT } from '../config/constants';
 
-// Si no recibimos broadcast del partner en este tiempo, lo marcamos offline
+const TABLE = 'couple_locations';
 const PARTNER_TIMEOUT_MS = 15000;
 
 export function useRoom({ roomCode, userName, avatar, myLocation }) {
   const [partner, setPartner] = useState(null);
   const [partnerOnline, setPartnerOnline] = useState(false);
   const [channelReady, setChannelReady] = useState(false);
-  const channelRef = useRef(null);
   const myKeyRef = useRef(`user_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+  const channelRef = useRef(null);
   const partnerTimeoutRef = useRef(null);
 
-  // Refs para acceder a valores frescos dentro de callbacks del canal
   const myLocationRef = useRef(myLocation);
   const userNameRef = useRef(userName);
   const avatarRef = useRef(avatar);
@@ -22,6 +20,7 @@ export function useRoom({ roomCode, userName, avatar, myLocation }) {
   useEffect(() => { userNameRef.current = userName; }, [userName]);
   useEffect(() => { avatarRef.current = avatar; }, [avatar]);
 
+  // Suscribir a cambios en la tabla para recibir ubicación del partner
   useEffect(() => {
     if (!roomCode) return;
 
@@ -30,40 +29,51 @@ export function useRoom({ roomCode, userName, avatar, myLocation }) {
     async function subscribe() {
       await ensureAnonSession();
 
-      const channel = supabase.channel(`${CHANNEL_PREFIX}${roomCode}`, {
-        config: { broadcast: { self: true } },
-      });
+      const channel = supabase
+        .channel(`db-room-${roomCode}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: TABLE,
+            filter: `room_code=eq.${roomCode}`,
+          },
+          (payload) => {
+            if (!active) return;
+            const row = payload.new || payload.old;
+            if (!row || row.user_key === myKeyRef.current) return;
 
-      channel.on('broadcast', { event: LOCATION_EVENT }, ({ payload }) => {
-        if (!active) return;
-        if (payload?.key === myKeyRef.current) return; // ignorar propios
+            if (payload.eventType === 'DELETE') {
+              setPartnerOnline(false);
+              setPartner(null);
+              return;
+            }
 
-        setPartner({
-          lat: payload.lat,
-          lon: payload.lon,
-          name: payload.name,
-          avatar: payload.avatar || null,
-          key: payload.key,
-          updatedAt: Date.now(),
-        });
-        setPartnerOnline(true);
+            setPartner({
+              lat: row.lat,
+              lon: row.lon,
+              name: row.name,
+              avatar: row.avatar || null,
+              key: row.user_key,
+              updatedAt: Date.now(),
+            });
+            setPartnerOnline(true);
 
-        // Reiniciar timeout: si no recibimos más en 15s → offline
-        if (partnerTimeoutRef.current) clearTimeout(partnerTimeoutRef.current);
-        partnerTimeoutRef.current = setTimeout(() => {
-          if (active) {
-            setPartnerOnline(false);
-            setPartner(null);
+            if (partnerTimeoutRef.current) clearTimeout(partnerTimeoutRef.current);
+            partnerTimeoutRef.current = setTimeout(() => {
+              if (active) {
+                setPartnerOnline(false);
+                setPartner(null);
+              }
+            }, PARTNER_TIMEOUT_MS);
           }
-        }, PARTNER_TIMEOUT_MS);
-      });
-
-      await channel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED' && active) {
-          await channel.track({ key: myKeyRef.current, name: userName });
-          setChannelReady(true);
-        }
-      });
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED' && active) {
+            setChannelReady(true);
+          }
+        });
 
       channelRef.current = channel;
     }
@@ -74,55 +84,61 @@ export function useRoom({ roomCode, userName, avatar, myLocation }) {
       active = false;
       if (partnerTimeoutRef.current) clearTimeout(partnerTimeoutRef.current);
       if (channelRef.current) {
-        channelRef.current.unsubscribe();
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
+      // Borrar fila propia al salir
+      supabase
+        .from(TABLE)
+        .delete()
+        .eq('room_code', roomCode)
+        .eq('user_key', myKeyRef.current)
+        .then(() => {});
       setChannelReady(false);
       setPartner(null);
       setPartnerOnline(false);
     };
   }, [roomCode]);
 
-  // Emitir ubicación propia cuando cambia
+  // Escribir ubicación propia en la tabla cuando cambia
   useEffect(() => {
-    if (!channelReady || !myLocation || !channelRef.current) return;
+    if (!channelReady || !myLocation) return;
 
-    channelRef.current.send({
-      type: 'broadcast',
-      event: LOCATION_EVENT,
-      payload: {
-        key: myKeyRef.current,
-        lat: myLocation.lat,
-        lon: myLocation.lon,
+    supabase
+      .from(TABLE)
+      .upsert({
+        room_code: roomCode,
+        user_key: myKeyRef.current,
         name: userName,
         avatar: avatar || null,
-      },
-    });
-  }, [myLocation, channelReady, userName, avatar]);
+        lat: myLocation.lat,
+        lon: myLocation.lon,
+        updated_at: new Date().toISOString(),
+      })
+      .then(() => {});
+  }, [myLocation, channelReady, userName, avatar, roomCode]);
 
-  // Heartbeat cada 5s: garantiza que el partner vea la ubicación aunque
-  // no haya cambio de GPS o se haya perdido el primer broadcast
+  // Heartbeat cada 5s para mantener la fila fresca
   useEffect(() => {
     if (!channelReady) return;
     const id = setInterval(() => {
       const loc = myLocationRef.current;
-      if (loc && channelRef.current) {
-        channelRef.current.send({
-          type: 'broadcast',
-          event: LOCATION_EVENT,
-          payload: {
-            key: myKeyRef.current,
-            lat: loc.lat,
-            lon: loc.lon,
-            name: userNameRef.current,
-            avatar: avatarRef.current || null,
-          },
-        });
-      }
+      if (!loc) return;
+      supabase
+        .from(TABLE)
+        .upsert({
+          room_code: roomCode,
+          user_key: myKeyRef.current,
+          name: userNameRef.current,
+          avatar: avatarRef.current || null,
+          lat: loc.lat,
+          lon: loc.lon,
+          updated_at: new Date().toISOString(),
+        })
+        .then(() => {});
     }, 5000);
     return () => clearInterval(id);
-  }, [channelReady]);
+  }, [channelReady, roomCode]);
 
   return { partner, partnerOnline, channelReady };
 }
