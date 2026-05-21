@@ -118,11 +118,17 @@ export default function CoupleMap({
       const map = mapInstanceRef.current;
       if (!map) return;
       if (mePos && partnerPos) {
-        const bounds = L.latLngBounds(
-          [mePos.lat, mePos.lon],
-          [partnerPos.lat, partnerPos.lon]
-        );
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 17 });
+        const dist = haversine(mePos.lat, mePos.lon, partnerPos.lat, partnerPos.lon);
+        // Si están en el mismo punto (< 5m), setView en vez de fitBounds para evitar zoom roto
+        if (dist < 5) {
+          map.setView([mePos.lat, mePos.lon], 17);
+        } else {
+          const bounds = L.latLngBounds(
+            [mePos.lat, mePos.lon],
+            [partnerPos.lat, partnerPos.lon]
+          );
+          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 17 });
+        }
       } else if (mePos) {
         map.setView([mePos.lat, mePos.lon], 16);
       }
