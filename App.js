@@ -53,16 +53,22 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
-  // Rehidratar datos persistidos
+  // Rehidratar datos persistidos y auto-entrar a sala guardada
   useEffect(() => {
     async function hydrate() {
       try {
-        const [name, av] = await Promise.all([
+        const [name, av, room] = await Promise.all([
           AsyncStorage.getItem(KEY_NAME),
           AsyncStorage.getItem(KEY_AVATAR),
+          AsyncStorage.getItem(KEY_ROOM),
         ]);
         if (name) setUserName(name);
         if (av) setAvatar(av);
+        // Si hay sala y nombre guardados, entrar directo
+        if (room && name) {
+          setRoomCode(room);
+          setScreen('room');
+        }
       } catch {
         // Silencioso si AsyncStorage falla
       } finally {
