@@ -33,10 +33,24 @@ export default function RoomScreen({ roomCode, userName, avatar, onLeave }) {
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
-    window.history.pushState({ room: true }, '');
-    const handlePop = () => onLeave();
+    // Interceptar back button de Android: push estado y escuchar popstate
+    // Usamos replaceState para no apilar estados infinitos
+    const currentState = window.history.state;
+    if (!currentState?.room) {
+      window.history.pushState({ room: true }, '');
+    }
+    const handlePop = (e) => {
+      // Solo salir si el estado destino no es "room"
+      if (!e?.state?.room) onLeave();
+    };
     window.addEventListener('popstate', handlePop);
-    return () => window.removeEventListener('popstate', handlePop);
+    return () => {
+      window.removeEventListener('popstate', handlePop);
+      // Limpiar el estado room del historial al salir
+      if (window.history.state?.room) {
+        window.history.replaceState(null, '');
+      }
+    };
   }, [onLeave]);
 
   const { location, error: locationError, loading: locationLoading } = useLocation(sharing);

@@ -92,9 +92,10 @@ function AppInner() {
   }, []);
 
   const handleLeaveRoom = useCallback(async () => {
+    // Limpiar AsyncStorage ANTES de cambiar pantalla para evitar auto-join en recarga
+    try { await AsyncStorage.removeItem(KEY_ROOM); } catch {}
     setScreen('home');
     setRoomCode(null);
-    try { await AsyncStorage.removeItem(KEY_ROOM); } catch {}
   }, []);
 
   if (!fontsReady || !hydrated) {
