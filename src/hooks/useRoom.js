@@ -2,12 +2,16 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase, ensureAnonSession } from '../lib/supabase';
 import { CHANNEL_PREFIX, LOCATION_EVENT } from '../config/constants';
 
+// Si no recibimos broadcast del partner en este tiempo, lo marcamos offline
+const PARTNER_TIMEOUT_MS = 15000;
+
 export function useRoom({ roomCode, userName, avatar, myLocation }) {
   const [partner, setPartner] = useState(null);
   const [partnerOnline, setPartnerOnline] = useState(false);
   const [channelReady, setChannelReady] = useState(false);
   const channelRef = useRef(null);
   const myKeyRef = useRef(`user_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+  const partnerTimeoutRef = useRef(null);
 
   // Refs para acceder a valores frescos dentro de callbacks del canal
   const myLocationRef = useRef(myLocation);
@@ -26,12 +30,8 @@ export function useRoom({ roomCode, userName, avatar, myLocation }) {
     async function subscribe() {
       await ensureAnonSession();
 
-      const channelName = `${CHANNEL_PREFIX}${roomCode}`;
-      const channel = supabase.channel(channelName, {
-        config: {
-          presence: { key: myKeyRef.current },
-          broadcast: { self: false },
-        },
+      const channel = supabase.channel(`${CHANNEL_PREFIX}${roomCode}`, {
+        config: { broadcast: { self: false } },
       });
 
       channel.on('broadcast', { event: LOCATION_EVENT }, ({ payload }) => {
@@ -47,49 +47,19 @@ export function useRoom({ roomCode, userName, avatar, myLocation }) {
           updatedAt: Date.now(),
         });
         setPartnerOnline(true);
-      });
 
-      channel.on('presence', { event: 'sync' }, () => {
-        if (!active) return;
-        const state = channel.presenceState();
-        const keys = Object.keys(state).filter((k) => k !== myKeyRef.current);
-        setPartnerOnline(keys.length > 0);
-        if (keys.length === 0) setPartner(null);
-      });
-
-      channel.on('presence', { event: 'join' }, ({ key }) => {
-        if (!active || key === myKeyRef.current) return;
-        setPartnerOnline(true);
-        // Reenviar ubicación actual al partner que acaba de entrar
-        const loc = myLocationRef.current;
-        if (loc && channelRef.current) {
-          channelRef.current.send({
-            type: 'broadcast',
-            event: LOCATION_EVENT,
-            payload: {
-              key: myKeyRef.current,
-              lat: loc.lat,
-              lon: loc.lon,
-              name: userNameRef.current,
-              avatar: avatarRef.current || null,
-            },
-          });
-        }
-      });
-
-      channel.on('presence', { event: 'leave' }, ({ key }) => {
-        if (!active || key === myKeyRef.current) return;
-        const state = channel.presenceState();
-        const remaining = Object.keys(state).filter((k) => k !== myKeyRef.current);
-        if (remaining.length === 0) {
-          setPartnerOnline(false);
-          setPartner(null);
-        }
+        // Reiniciar timeout: si no recibimos más en 15s → offline
+        if (partnerTimeoutRef.current) clearTimeout(partnerTimeoutRef.current);
+        partnerTimeoutRef.current = setTimeout(() => {
+          if (active) {
+            setPartnerOnline(false);
+            setPartner(null);
+          }
+        }, PARTNER_TIMEOUT_MS);
       });
 
       await channel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED' && active) {
-          await channel.track({ name: userName, avatar: avatar || null });
           setChannelReady(true);
         }
       });
@@ -101,6 +71,7 @@ export function useRoom({ roomCode, userName, avatar, myLocation }) {
 
     return () => {
       active = false;
+      if (partnerTimeoutRef.current) clearTimeout(partnerTimeoutRef.current);
       if (channelRef.current) {
         channelRef.current.unsubscribe();
         supabase.removeChannel(channelRef.current);
@@ -130,7 +101,7 @@ export function useRoom({ roomCode, userName, avatar, myLocation }) {
   }, [myLocation, channelReady, userName, avatar]);
 
   // Heartbeat cada 5s: garantiza que el partner vea la ubicación aunque
-  // no haya cambio de GPS o se haya perdido el evento de join
+  // no haya cambio de GPS o se haya perdido el primer broadcast
   useEffect(() => {
     if (!channelReady) return;
     const id = setInterval(() => {
