@@ -14,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import AvatarPicker from '../components/AvatarPicker';
 import { useTheme } from '../context/ThemeContext';
-import { ROOM_CODE_LENGTH, ROOM_CODE_CHARSET } from '../config/constants';
+import { ROOM_CODE_LENGTH, ROOM_CODE_CHARSET, APP_VERSION } from '../config/constants';
 
 function generateRoomCode() {
   let code = '';
@@ -143,6 +143,7 @@ export default function HomeScreen({ initialName, initialAvatar, onEnterRoom }) 
           <Text style={styles.footerNote}>
             No se guarda ningún dato personal.{'\n'}Conexión en tiempo real con Supabase.
           </Text>
+          <Text style={styles.versionText}>v{APP_VERSION} ✓</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>
@@ -198,5 +199,6 @@ function makeStyles(colors) {
     },
     joinBtnText: { fontFamily: 'Nunito_600SemiBold', fontSize: 16, color: colors.coral },
     footerNote: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: colors.textMuted, textAlign: 'center', lineHeight: 18 },
+    versionText: { fontFamily: 'Nunito_400Regular', fontSize: 12, color: colors.textMuted, textAlign: 'center', marginTop: 8 },
   });
 }
