@@ -129,5 +129,28 @@ export function useRoom({ roomCode, userName, avatar, myLocation }) {
     });
   }, [myLocation, channelReady, userName, avatar]);
 
+  // Heartbeat cada 5s: garantiza que el partner vea la ubicación aunque
+  // no haya cambio de GPS o se haya perdido el evento de join
+  useEffect(() => {
+    if (!channelReady) return;
+    const id = setInterval(() => {
+      const loc = myLocationRef.current;
+      if (loc && channelRef.current) {
+        channelRef.current.send({
+          type: 'broadcast',
+          event: LOCATION_EVENT,
+          payload: {
+            key: myKeyRef.current,
+            lat: loc.lat,
+            lon: loc.lon,
+            name: userNameRef.current,
+            avatar: avatarRef.current || null,
+          },
+        });
+      }
+    }, 5000);
+    return () => clearInterval(id);
+  }, [channelReady]);
+
   return { partner, partnerOnline, channelReady };
 }

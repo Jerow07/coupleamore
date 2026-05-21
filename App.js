@@ -64,9 +64,17 @@ export default function App() {
         ]);
         if (name) setUserName(name);
         if (av) setAvatar(av);
-        // Si hay sala y nombre guardados, entrar directo
-        if (room && name) {
-          setRoomCode(room);
+
+        // En web, el ?room= de la URL tiene prioridad sobre la sala guardada
+        const urlRoom =
+          typeof window !== 'undefined' && window.location?.search
+            ? new URLSearchParams(window.location.search).get('room')?.toUpperCase() || null
+            : null;
+
+        const targetRoom = urlRoom || room;
+        if (targetRoom && name) {
+          if (urlRoom) await AsyncStorage.setItem(KEY_ROOM, urlRoom).catch(() => {});
+          setRoomCode(targetRoom);
           setScreen('room');
         }
       } catch {
