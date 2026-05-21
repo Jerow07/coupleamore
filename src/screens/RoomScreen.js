@@ -23,7 +23,7 @@ import RoomCodeBadge from '../components/RoomCodeBadge';
 import { useLocation } from '../hooks/useLocation';
 import { useRoom } from '../hooks/useRoom';
 import { haversine } from '../utils/haversine';
-import { CLOSE_THRESHOLD_METERS } from '../config/constants';
+import { CLOSE_THRESHOLD_METERS, APP_VERSION } from '../config/constants';
 import { COLORS } from '../config/theme';
 
 // En nativo, disparar haptics solo si disponible
@@ -43,6 +43,15 @@ export default function RoomScreen({ roomCode, userName, avatar, onLeave }) {
   const [sharing, setSharing] = useState(true);
   const [celebrate, setCelebrate] = useState(false);
   const wasCloseRef = useRef(false);
+
+  // Interceptar botón Back de Android en web para volver al home en vez de cerrar la app
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    window.history.pushState({ room: true }, '');
+    const handlePop = () => onLeave();
+    window.addEventListener('popstate', handlePop);
+    return () => window.removeEventListener('popstate', handlePop);
+  }, [onLeave]);
 
   // GPS activo solo cuando sharing === true
   const { location, error: locationError, loading: locationLoading } = useLocation(sharing);
@@ -157,6 +166,7 @@ export default function RoomScreen({ roomCode, userName, avatar, onLeave }) {
             <Text style={styles.leaveBtnText}>Salir de la sala</Text>
           </TouchableOpacity>
         </View>
+        <Text style={styles.versionText}>v{APP_VERSION}</Text>
       </View>
     </View>
   );
@@ -214,7 +224,7 @@ const styles = StyleSheet.create({
     borderTopColor: COLORS.border,
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: Platform.OS === 'ios' ? 32 : 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 56,
     gap: 14,
   },
   actions: {
@@ -232,5 +242,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Nunito_400Regular',
     fontSize: 15,
     color: COLORS.textMuted,
+  },
+  versionText: {
+    fontFamily: 'Nunito_400Regular',
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.15)',
+    textAlign: 'center',
+    marginTop: 4,
   },
 });

@@ -1,5 +1,7 @@
 // Constantes globales de la app
 
+export const APP_VERSION = '1.5';
+
 /** Distancia mínima en metros antes de emitir un nuevo punto GPS */
 export const GPS_DISTANCE_INTERVAL = 4;
 
