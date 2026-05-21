@@ -1,6 +1,6 @@
 // Pantalla de inicio: nombre, avatar y unirse/crear sala
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,13 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
+
+/** Lee el parámetro ?room=XXXX de la URL (solo web) */
+function getRoomFromUrl() {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  return params.get('room')?.toUpperCase() || null;
+}
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import AvatarPicker from '../components/AvatarPicker';
@@ -35,9 +42,17 @@ function generateRoomCode() {
 export default function HomeScreen({ initialName, initialAvatar, onEnterRoom }) {
   const [name, setName] = useState(initialName || '');
   const [avatar, setAvatar] = useState(initialAvatar || null);
-  const [joinCode, setJoinCode] = useState('');
+  const urlRoom = getRoomFromUrl();
+  const [joinCode, setJoinCode] = useState(urlRoom || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Si viene con ?room= y ya tiene nombre guardado, entrar directo
+  useEffect(() => {
+    if (urlRoom && initialName) {
+      onEnterRoom(urlRoom, initialName, initialAvatar);
+    }
+  }, []);
 
   const validate = useCallback(() => {
     if (!name.trim()) {

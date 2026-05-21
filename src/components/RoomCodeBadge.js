@@ -9,22 +9,24 @@ import { COLORS } from '../config/theme';
  */
 export default function RoomCodeBadge({ roomCode }) {
   const handleShare = useCallback(async () => {
-    const message = `¡Unite a mi sala en Couple Distance! Código: ${roomCode}`;
+    const base = Platform.OS === 'web' && typeof window !== 'undefined'
+      ? window.location.origin
+      : 'https://coupleamore.vercel.app';
+    const url = `${base}/?room=${roomCode}`;
+    const message = `¡Unite a mi sala en Couple Distance! 💕\n${url}`;
 
     if (Platform.OS === 'web') {
       if (navigator.share) {
         try {
-          await navigator.share({ title: 'Couple Distance', text: message });
+          await navigator.share({ title: 'Couple Distance', text: message, url });
         } catch {
           // Usuario canceló
         }
       } else {
-        // Copiar al portapapeles como fallback
         try {
-          await navigator.clipboard.writeText(roomCode);
-          // No podemos mostrar Alert sin React Native modal, simplemente copiamos
+          await navigator.clipboard.writeText(url);
         } catch {
-          // Silencioso en web sin permiso
+          // Silencioso
         }
       }
       return;
