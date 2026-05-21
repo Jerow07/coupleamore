@@ -39,7 +39,7 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/favicon.png",
+      "favicon": "./assets/favicon.svg",
       "name": "Couple Distance",
       "shortName": "Couple",
       "description": "Comparte tu ubicación en tiempo real con tu pareja",
