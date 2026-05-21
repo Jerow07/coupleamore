@@ -1,5 +1,3 @@
-// App principal: carga fuentes, rehidrata sesión, navega entre Home y Room
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -8,14 +6,12 @@ import * as Font from 'expo-font';
 
 import HomeScreen from './src/screens/HomeScreen';
 import RoomScreen from './src/screens/RoomScreen';
-import { COLORS } from './src/config/theme';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 
-// Claves de persistencia en AsyncStorage
 const KEY_NAME = 'cd_userName';
 const KEY_AVATAR = 'cd_avatar';
 const KEY_ROOM = 'cd_lastRoom';
 
-// Fuentes por URL (no requiere archivos locales; funciona en web y nativo con expo-font)
 const FONT_SOURCES = {
   Fraunces_400Regular: {
     uri: 'https://fonts.gstatic.com/s/fraunces/v24/6NUh8FyLNQOQZAnv9bYEvDiIdE9Ea92uZmO_Q5m9IzRFOvE.woff2',
@@ -34,17 +30,15 @@ const FONT_SOURCES = {
   },
 };
 
-export default function App() {
+function AppInner() {
+  const { colors } = useTheme();
   const [fontsReady, setFontsReady] = useState(false);
   const [hydrated, setHydrated] = useState(false);
-
-  // Estado de navegación
-  const [screen, setScreen] = useState('home'); // 'home' | 'room'
+  const [screen, setScreen] = useState('home');
   const [roomCode, setRoomCode] = useState(null);
   const [userName, setUserName] = useState('');
   const [avatar, setAvatar] = useState(null);
 
-  // Cargar fuentes
   useEffect(() => {
     const t = setTimeout(() => setFontsReady(true), 3000);
     Font.loadAsync(FONT_SOURCES)
@@ -53,7 +47,6 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
-  // Rehidratar datos persistidos y auto-entrar a sala guardada
   useEffect(() => {
     async function hydrate() {
       try {
@@ -65,7 +58,6 @@ export default function App() {
         if (name) setUserName(name);
         if (av) setAvatar(av);
 
-        // En web, el ?room= de la URL tiene prioridad sobre la sala guardada
         const urlRoom =
           typeof window !== 'undefined' && window.location?.search
             ? new URLSearchParams(window.location.search).get('room')?.toUpperCase() || null
@@ -78,7 +70,6 @@ export default function App() {
           setScreen('room');
         }
       } catch {
-        // Silencioso si AsyncStorage falla
       } finally {
         setHydrated(true);
       }
@@ -94,31 +85,22 @@ export default function App() {
     try {
       await Promise.all([
         AsyncStorage.setItem(KEY_NAME, name),
-        av
-          ? AsyncStorage.setItem(KEY_AVATAR, av)
-          : AsyncStorage.removeItem(KEY_AVATAR),
+        av ? AsyncStorage.setItem(KEY_AVATAR, av) : AsyncStorage.removeItem(KEY_AVATAR),
         AsyncStorage.setItem(KEY_ROOM, code),
       ]);
-    } catch {
-      // Silencioso
-    }
+    } catch {}
   }, []);
 
   const handleLeaveRoom = useCallback(async () => {
     setScreen('home');
     setRoomCode(null);
-    try {
-      await AsyncStorage.removeItem(KEY_ROOM);
-    } catch {
-      // Silencioso
-    }
+    try { await AsyncStorage.removeItem(KEY_ROOM); } catch {}
   }, []);
 
-  // Mostrar spinner mientras carga recursos iniciales
   if (!fontsReady || !hydrated) {
     return (
-      <View style={styles.splash}>
-        <ActivityIndicator color={COLORS.coral} size="large" />
+      <View style={[styles.splash, { backgroundColor: colors.bg }]}>
+        <ActivityIndicator color={colors.coral} size="large" />
       </View>
     );
   }
@@ -126,29 +108,22 @@ export default function App() {
   return (
     <SafeAreaProvider>
       {screen === 'home' ? (
-        <HomeScreen
-          initialName={userName}
-          initialAvatar={avatar}
-          onEnterRoom={handleEnterRoom}
-        />
+        <HomeScreen initialName={userName} initialAvatar={avatar} onEnterRoom={handleEnterRoom} />
       ) : (
-        <RoomScreen
-          roomCode={roomCode}
-          userName={userName}
-          avatar={avatar}
-          onLeave={handleLeaveRoom}
-        />
+        <RoomScreen roomCode={roomCode} userName={userName} avatar={avatar} onLeave={handleLeaveRoom} />
       )}
     </SafeAreaProvider>
   );
 }
 
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppInner />
+    </ThemeProvider>
+  );
+}
+
 const styles = StyleSheet.create({
-  splash: {
-    flex: 1,
-    minHeight: '100vh',
-    backgroundColor: COLORS.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  splash: { flex: 1, minHeight: '100vh', alignItems: 'center', justifyContent: 'center' },
 });

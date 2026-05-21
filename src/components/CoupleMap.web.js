@@ -30,6 +30,7 @@ export default function CoupleMap({
   partner,
   closeThresholdMeters = CLOSE_THRESHOLD_METERS,
   onRecenter,
+  isDark = true,
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -214,7 +215,7 @@ export default function CoupleMap({
           width: '100%',
           height: '100%',
           // Filtro cálido sobre tiles OSM
-          filter: 'saturate(0.85) brightness(0.9) sepia(0.1)',
+          filter: isDark ? 'saturate(0.85) brightness(0.9) sepia(0.1)' : 'saturate(1.0) brightness(1.05)',
         }}
       />
       {/* Botón recentrar */}
