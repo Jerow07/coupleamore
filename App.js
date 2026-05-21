@@ -92,8 +92,11 @@ function AppInner() {
   }, []);
 
   const handleLeaveRoom = useCallback(async () => {
-    // Limpiar AsyncStorage ANTES de cambiar pantalla para evitar auto-join en recarga
     try { await AsyncStorage.removeItem(KEY_ROOM); } catch {}
+    // Sacar ?room= de la URL para que no vuelva a auto-entrar si recarga o vuelve atrás
+    if (typeof window !== 'undefined' && window.location.search) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
     setScreen('home');
     setRoomCode(null);
   }, []);
