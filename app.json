@@ -1,0 +1,73 @@
+{
+  "expo": {
+    "name": "Couple Distance",
+    "slug": "couple-distance",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1A1015"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.coupledistance.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Couple Distance necesita tu ubicación para mostrarte en el mapa compartido.",
+        "NSLocationAlwaysUsageDescription": "Couple Distance necesita tu ubicación para mostrarte en el mapa compartido.",
+        "NSPhotoLibraryUsageDescription": "Couple Distance necesita acceder a tu galería para elegir tu avatar.",
+        "NSCameraUsageDescription": "Couple Distance necesita la cámara para tomarte una foto de perfil."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1A1015"
+      },
+      "package": "com.coupledistance.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "CAMERA"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png",
+      "name": "Couple Distance",
+      "shortName": "Couple",
+      "description": "Comparte tu ubicación en tiempo real con tu pareja",
+      "display": "standalone",
+      "orientation": "portrait",
+      "themeColor": "#FF6B6B",
+      "backgroundColor": "#1A1015",
+      "startUrl": "/"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Couple Distance necesita tu ubicación para mostrarte en el mapa compartido."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Couple Distance necesita acceder a tu galería para elegir tu avatar.",
+          "cameraPermission": "Couple Distance necesita la cámara para tomarte una foto de perfil."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "couple-distance"
+      }
+    }
+  }
+}
