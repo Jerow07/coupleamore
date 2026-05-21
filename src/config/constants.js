@@ -1,6 +1,6 @@
 // Constantes globales de la app
 
-export const APP_VERSION = '1.5';
+export const APP_VERSION = '1.6';
 
 /** Distancia mínima en metros antes de emitir un nuevo punto GPS */
 export const GPS_DISTANCE_INTERVAL = 4;
@@ -18,7 +18,7 @@ export const ROOM_CODE_LENGTH = 6;
 export const ROOM_CODE_CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 /** Canal prefix para Supabase Realtime */
-export const CHANNEL_PREFIX = 'room:';
+export const CHANNEL_PREFIX = 'room-';
 
 /** Evento de broadcast para compartir ubicación */
 export const LOCATION_EVENT = 'location';

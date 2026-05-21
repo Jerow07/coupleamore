@@ -31,12 +31,12 @@ export function useRoom({ roomCode, userName, avatar, myLocation }) {
       await ensureAnonSession();
 
       const channel = supabase.channel(`${CHANNEL_PREFIX}${roomCode}`, {
-        config: { broadcast: { self: false } },
+        config: { broadcast: { self: true } },
       });
 
       channel.on('broadcast', { event: LOCATION_EVENT }, ({ payload }) => {
         if (!active) return;
-        if (payload?.key === myKeyRef.current) return;
+        if (payload?.key === myKeyRef.current) return; // ignorar propios
 
         setPartner({
           lat: payload.lat,
@@ -60,6 +60,7 @@ export function useRoom({ roomCode, userName, avatar, myLocation }) {
 
       await channel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED' && active) {
+          await channel.track({ key: myKeyRef.current, name: userName });
           setChannelReady(true);
         }
       });
