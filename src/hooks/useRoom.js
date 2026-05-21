@@ -1,19 +1,7 @@
-// Hook para sincronización en tiempo real de una sala con Supabase Realtime
-
 import { useState, useEffect, useRef } from 'react';
 import { supabase, ensureAnonSession } from '../lib/supabase';
 import { CHANNEL_PREFIX, LOCATION_EVENT } from '../config/constants';
 
-/**
- * Gestiona la presencia y ubicación en una sala compartida.
- *
- * @param {object} params
- * @param {string} params.roomCode - Código de la sala (6 chars)
- * @param {string} params.userName - Nombre del usuario actual
- * @param {string|null} params.avatar - URI de avatar (puede ser null)
- * @param {{lat: number, lon: number}|null} params.myLocation - Ubicación actual del usuario
- * @returns {{ partner: object|null, partnerOnline: boolean, channelReady: boolean }}
- */
 export function useRoom({ roomCode, userName, avatar, myLocation }) {
   const [partner, setPartner] = useState(null);
   const [partnerOnline, setPartnerOnline] = useState(false);
@@ -21,7 +9,15 @@ export function useRoom({ roomCode, userName, avatar, myLocation }) {
   const channelRef = useRef(null);
   const myKeyRef = useRef(`user_${Date.now()}_${Math.random().toString(36).slice(2)}`);
 
-  // Suscribirse al canal de la sala
+  // Refs para acceder a valores frescos dentro de callbacks del canal
+  const myLocationRef = useRef(myLocation);
+  const userNameRef = useRef(userName);
+  const avatarRef = useRef(avatar);
+
+  useEffect(() => { myLocationRef.current = myLocation; }, [myLocation]);
+  useEffect(() => { userNameRef.current = userName; }, [userName]);
+  useEffect(() => { avatarRef.current = avatar; }, [avatar]);
+
   useEffect(() => {
     if (!roomCode) return;
 
@@ -38,10 +34,9 @@ export function useRoom({ roomCode, userName, avatar, myLocation }) {
         },
       });
 
-      // Escuchar broadcasts de ubicación
       channel.on('broadcast', { event: LOCATION_EVENT }, ({ payload }) => {
         if (!active) return;
-        if (payload?.key === myKeyRef.current) return; // Ignorar propio
+        if (payload?.key === myKeyRef.current) return;
 
         setPartner({
           lat: payload.lat,
@@ -54,20 +49,32 @@ export function useRoom({ roomCode, userName, avatar, myLocation }) {
         setPartnerOnline(true);
       });
 
-      // Presencia para detectar si la pareja está online
       channel.on('presence', { event: 'sync' }, () => {
         if (!active) return;
         const state = channel.presenceState();
         const keys = Object.keys(state).filter((k) => k !== myKeyRef.current);
         setPartnerOnline(keys.length > 0);
-        if (keys.length === 0) {
-          setPartner(null);
-        }
+        if (keys.length === 0) setPartner(null);
       });
 
       channel.on('presence', { event: 'join' }, ({ key }) => {
         if (!active || key === myKeyRef.current) return;
         setPartnerOnline(true);
+        // Reenviar ubicación actual al partner que acaba de entrar
+        const loc = myLocationRef.current;
+        if (loc && channelRef.current) {
+          channelRef.current.send({
+            type: 'broadcast',
+            event: LOCATION_EVENT,
+            payload: {
+              key: myKeyRef.current,
+              lat: loc.lat,
+              lon: loc.lon,
+              name: userNameRef.current,
+              avatar: avatarRef.current || null,
+            },
+          });
+        }
       });
 
       channel.on('presence', { event: 'leave' }, ({ key }) => {
@@ -82,7 +89,6 @@ export function useRoom({ roomCode, userName, avatar, myLocation }) {
 
       await channel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED' && active) {
-          // Anunciar presencia
           await channel.track({ name: userName, avatar: avatar || null });
           setChannelReady(true);
         }
