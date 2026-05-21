@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx expo export -p web",
+  "buildCommand": "npx expo export -p web && node scripts/inject-pwa.js",
   "outputDirectory": "dist",
   "installCommand": "npm install"
 }
