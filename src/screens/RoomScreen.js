@@ -166,7 +166,7 @@ export default function RoomScreen({ roomCode, userName, avatar, onLeave }) {
             <Text style={styles.leaveBtnText}>Salir de la sala</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.versionText}>v{APP_VERSION}</Text>
+        <Text style={styles.versionText}>v{APP_VERSION} ✓</Text>
       </View>
     </View>
   );
@@ -245,9 +245,9 @@ const styles = StyleSheet.create({
   },
   versionText: {
     fontFamily: 'Nunito_400Regular',
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.15)',
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.5)',
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: 6,
   },
 });
